@@ -1,0 +1,23 @@
+{
+  "worktrees": {
+    "wt-1776963521860-1": {
+      "branch": "fuchsia-agreement",
+      "path": "/home/lykon/Work/PsyBuddy/PsyBuddy/.kilo/worktrees/fuchsia-agreement",
+      "parentBranch": "development",
+      "createdAt": "2026-04-23T16:58:41.860Z",
+      "remote": "origin"
+    },
+    "wt-1776964129016-2": {
+      "branch": "lyrical-crowd",
+      "path": "/home/lykon/Work/PsyBuddy/PsyBuddy/.kilo/worktrees/lyrical-crowd",
+      "parentBranch": "development",
+      "createdAt": "2026-04-23T17:08:49.016Z",
+      "remote": "origin"
+    }
+  },
+  "sessions": {},
+  "worktreeOrder": [
+    "wt-1776963521860-1",
+    "wt-1776964129016-2"
+  ]
+}

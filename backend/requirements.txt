@@ -1,0 +1,13 @@
+fastapi
+uvicorn
+pydantic>=2.8.0
+supabase
+python-dotenv
+transformers
+torch
+passlib==1.7.4
+bcrypt==4.0.1
+python-jose[cryptography]==3.3.0
+datasets
+scikit-learn
+accelerate

@@ -1,0 +1,14 @@
+# Environments
+.env
+.venv/
+venv/
+env/
+
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Mac OS folder attributes
+.DS_Store
+backend/ml_models/
