@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:provider/provider.dart';
+import '../providers/theme_provider.dart';
 import '../screens/chat_screen.dart';
 import '../screens/journal_screen.dart';
 import '../screens/dream_screen.dart';
@@ -27,29 +29,64 @@ class AppSidebar extends StatelessWidget {
     this.onLoadSession,
   });
 
-  Widget _buildNavItem(BuildContext context, {required IconData icon, required String title, required String route, required Widget destination}) {
+  Widget _buildNavItem(
+    BuildContext context, {
+    required IconData icon,
+    required String title,
+    required String route,
+    required Widget destination,
+  }) {
     final isActive = currentRoute == route;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final textPrimary =
+        isDark ? const Color(0xFFF0F0F8) : const Color(0xFF0D0D12);
+    final textSecondary =
+        isDark ? const Color(0xFF8B8BA7) : const Color(0xFF6B6B85);
+    final activeBg =
+        isDark ? const Color(0xFF1E1A40) : const Color(0xFFEDE9FE);
+    final activePrimary =
+        isDark ? const Color(0xFF7C6EF8) : const Color(0xFF6B5EE8);
+
     return InkWell(
       onTap: () {
         if (!isDesktop) Navigator.pop(context);
         if (!isActive) {
-          Navigator.pushReplacement(context, MaterialPageRoute(builder: (_) => destination));
+          Navigator.pushReplacement(
+              context, MaterialPageRoute(builder: (_) => destination));
         }
       },
+      borderRadius: BorderRadius.circular(10),
       child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+        padding:
+            const EdgeInsets.symmetric(horizontal: 14, vertical: 11),
         decoration: BoxDecoration(
-          color: isActive ? primaryColor.withOpacity(0.1) : Colors.transparent,
-          borderRadius: BorderRadius.circular(12),
+          color: isActive ? activeBg : Colors.transparent,
+          borderRadius: BorderRadius.circular(10),
         ),
         child: Row(
           children: [
-            Icon(icon, color: isActive ? primaryColor : Colors.black54),
-            const SizedBox(width: 16),
-            Text(title, style: GoogleFonts.inter(
-              fontWeight: isActive ? FontWeight.w600 : FontWeight.w400,
-              color: isActive ? primaryColor : Colors.black87,
-            )),
+            Icon(icon,
+                size: 20,
+                color: isActive ? activePrimary : textSecondary),
+            const SizedBox(width: 12),
+            Text(
+              title,
+              style: GoogleFonts.inter(
+                fontSize: 14,
+                fontWeight:
+                    isActive ? FontWeight.w600 : FontWeight.w400,
+                color: isActive ? textPrimary : textSecondary,
+              ),
+            ),
+            if (isActive) ...[
+              const Spacer(),
+              Container(
+                width: 6,
+                height: 6,
+                decoration: BoxDecoration(
+                    color: activePrimary, shape: BoxShape.circle),
+              ),
+            ],
           ],
         ),
       ),
@@ -58,150 +95,280 @@ class AppSidebar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Drawer(
-      elevation: isDesktop ? 0 : 16,
-      backgroundColor: isDesktop ? Colors.transparent : Colors.white,
-      child: Container(
-        color: Colors.white,
-        child: Column(
-          children: [
-            if (!isDesktop) const SizedBox(height: 48),
-            if (isDesktop) const SizedBox(height: 24),
-            
-            // Branding
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 24.0, vertical: 8.0),
-              child: Align(
-                alignment: Alignment.centerLeft,
-                child: Text(
-                  'PsyBuddy',
-                  style: GoogleFonts.greatVibes(
-                    fontSize: 32,
-                    color: primaryColor,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-              ),
-            ),
-            const SizedBox(height: 24),
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final surfaceColor =
+        isDark ? const Color(0xFF16161F) : Colors.white;
+    final surfaceVar =
+        isDark ? const Color(0xFF1E1E2A) : const Color(0xFFF0F0F8);
+    final borderColor =
+        isDark ? const Color(0xFF2A2A3A) : const Color(0xFFE4E4EF);
+    final textPrimary =
+        isDark ? const Color(0xFFF0F0F8) : const Color(0xFF0D0D12);
+    final textSecondary =
+        isDark ? const Color(0xFF8B8BA7) : const Color(0xFF6B6B85);
+    final textTertiary =
+        isDark ? const Color(0xFF5A5A72) : const Color(0xFF9898B0);
+    final primary =
+        isDark ? const Color(0xFF7C6EF8) : const Color(0xFF6B5EE8);
 
-            // Navigation Links
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 12.0),
-              child: Column(
-                children: [
-                  _buildNavItem(context, icon: Icons.chat_bubble_outline, title: 'Chat', route: '/chat', destination: ChatScreen(username: username)),
-                  const SizedBox(height: 8),
-                  _buildNavItem(context, icon: Icons.menu_book, title: 'Journal', route: '/journal', destination: JournalScreen(username: username)),
-                  const SizedBox(height: 8),
-                  _buildNavItem(context, icon: Icons.nights_stay_outlined, title: 'Dreams', route: '/dreams', destination: DreamScreen(username: username)),
-                  const SizedBox(height: 8),
-                  _buildNavItem(context, icon: Icons.bar_chart, title: 'Mood Chart', route: '/mood', destination: MoodScreen(username: username)),
-                ],
-              ),
-            ),
-
-            const SizedBox(height: 24),
-            const Divider(indent: 24, endIndent: 24),
-
-            // Optional Chat specific actions
-            if (currentRoute == '/chat' && onNewChat != null) ...[
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 16.0),
-                child: InkWell(
-                  onTap: () {
-                    if (!isDesktop) Navigator.pop(context);
-                    onNewChat!();
-                  },
-                  child: Container(
-                    decoration: BoxDecoration(
-                      border: Border.all(color: Colors.grey[300]!),
-                      borderRadius: BorderRadius.circular(16.0),
+    final content = Container(
+      color: surfaceColor,
+      child: Column(
+        children: [
+          SizedBox(
+              height: isDesktop
+                  ? 24
+                  : 48 + MediaQuery.of(context).padding.top),
+          // Brand
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
+            child: Row(
+              children: [
+                Container(
+                  width: 36,
+                  height: 36,
+                  decoration: BoxDecoration(
+                    gradient: const LinearGradient(
+                      colors: [Color(0xFF7C6EF8), Color(0xFF4ECDC4)],
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
                     ),
-                    padding: const EdgeInsets.all(12),
-                    child: Row(
-                      children: [
-                        Container(
-                          padding: const EdgeInsets.all(2),
-                          decoration: BoxDecoration(color: primaryColor, shape: BoxShape.circle),
-                          child: const Icon(Icons.add, color: Colors.white, size: 20),
-                        ),
-                        const SizedBox(width: 12),
-                        Text("New Chat", style: GoogleFonts.inter(color: primaryColor, fontWeight: FontWeight.bold)),
-                      ]
-                    )
-                  )
-                )
-              ),
-              
-              if (chatSessions != null) ...[
-                Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
-                  child: Align(
-                    alignment: Alignment.centerLeft,
-                    child: Text("Recent Chats", style: GoogleFonts.inter(fontWeight: FontWeight.bold, fontSize: 14, color: Colors.black54)),
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: Center(
+                    child: Text(
+                      'P',
+                      style: GoogleFonts.plusJakartaSans(
+                          fontSize: 20,
+                          fontWeight: FontWeight.w800,
+                          color: Colors.white),
+                    ),
                   ),
                 ),
-                Expanded(
-                  child: ListView.builder(
-                    padding: const EdgeInsets.symmetric(horizontal: 12),
-                    itemCount: chatSessions!.length,
-                    itemBuilder: (context, index) {
-                      final session = chatSessions![index];
-                      final isActive = session['session_id'] == activeSessionId;
-                      return Container(
-                        margin: const EdgeInsets.only(bottom: 4),
-                        decoration: BoxDecoration(
-                          color: isActive ? primaryColor.withOpacity(0.1) : Colors.transparent,
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                        child: ListTile(
-                          dense: true,
-                          leading: Icon(Icons.history, color: isActive ? primaryColor : Colors.black38, size: 18),
-                          title: Text(session['title']?.isNotEmpty == true ? session['title'] : 'Untitled Session', 
-                              maxLines: 1, overflow: TextOverflow.ellipsis,
-                              style: GoogleFonts.inter(fontSize: 13, fontWeight: isActive ? FontWeight.w600 : FontWeight.w400)),
-                          selected: isActive,
-                          onTap: () {
-                            if (!isDesktop) Navigator.pop(context);
-                            if (onLoadSession != null) onLoadSession!(session['session_id']);
-                          },
-                        ),
-                      );
-                    }
-                  )
+                const SizedBox(width: 12),
+                Text(
+                  'PsyBuddy',
+                  style: GoogleFonts.plusJakartaSans(
+                      fontSize: 20,
+                      fontWeight: FontWeight.w700,
+                      color: textPrimary),
                 ),
-              ] else ...[
-                const Spacer(),
-              ]
-            ] else ...[
-              const Spacer(),
-            ],
-
+              ],
+            ),
+          ),
+          const SizedBox(height: 28),
+          // Nav items
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 12),
+            child: Column(
+              children: [
+                _buildNavItem(context,
+                    icon: Icons.chat_bubble_outline_rounded,
+                    title: 'Chat',
+                    route: '/chat',
+                    destination: ChatScreen(username: username)),
+                const SizedBox(height: 4),
+                _buildNavItem(context,
+                    icon: Icons.auto_stories_outlined,
+                    title: 'Journal',
+                    route: '/journal',
+                    destination: JournalScreen(username: username)),
+                const SizedBox(height: 4),
+                _buildNavItem(context,
+                    icon: Icons.nights_stay_outlined,
+                    title: 'Dreams',
+                    route: '/dreams',
+                    destination: DreamScreen(username: username)),
+                const SizedBox(height: 4),
+                _buildNavItem(context,
+                    icon: Icons.insights_outlined,
+                    title: 'Insights',
+                    route: '/mood',
+                    destination: MoodScreen(username: username)),
+              ],
+            ),
+          ),
+          // Chat-specific section
+          if (currentRoute == '/chat' && onNewChat != null) ...[
+            const SizedBox(height: 20),
             Padding(
-               padding: const EdgeInsets.all(16),
-               child: InkWell(
-                 onTap: () {},
-                 child: Container(
-                   decoration: BoxDecoration(
-                     border: Border.all(color: Colors.grey[300]!),
-                     borderRadius: BorderRadius.circular(12.0),
-                   ),
-                   padding: const EdgeInsets.all(12),
-                   child: Row(
-                     children: [
-                       const Icon(Icons.settings_outlined, color: Colors.black54),
-                       const SizedBox(width: 12),
-                       Text("Settings", style: GoogleFonts.inter(fontWeight: FontWeight.w500)),
-                     ]
-                   )
-                 )
-               )
+              padding: const EdgeInsets.symmetric(horizontal: 12),
+              child: Divider(color: borderColor, height: 1),
             ),
             const SizedBox(height: 16),
-          ]
-        )
-      )
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 12),
+              child: GestureDetector(
+                onTap: () {
+                  if (!isDesktop) Navigator.pop(context);
+                  onNewChat!();
+                },
+                child: Container(
+                  padding: const EdgeInsets.symmetric(
+                      horizontal: 16, vertical: 12),
+                  decoration: BoxDecoration(
+                    color: isDark
+                        ? const Color(0xFF2D2760).withOpacity(0.6)
+                        : const Color(0xFFEDE9FF),
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(
+                        color: isDark
+                            ? const Color(0xFF3D3580)
+                            : const Color(0xFFD4D0FF)),
+                  ),
+                  child: Row(
+                    children: [
+                      const Icon(Icons.add,
+                          color: Color(0xFF7C6EF8), size: 18),
+                      const SizedBox(width: 10),
+                      Text('New Chat',
+                          style: GoogleFonts.inter(
+                              color: const Color(0xFF7C6EF8),
+                              fontWeight: FontWeight.w600,
+                              fontSize: 14)),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+            const SizedBox(height: 16),
+            if (chatSessions != null && chatSessions!.isNotEmpty) ...[
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 20),
+                child: Align(
+                  alignment: Alignment.centerLeft,
+                  child: Text('RECENT',
+                      style: GoogleFonts.inter(
+                          fontSize: 11,
+                          fontWeight: FontWeight.w600,
+                          color: textTertiary,
+                          letterSpacing: 0.8)),
+                ),
+              ),
+              const SizedBox(height: 8),
+              Expanded(
+                child: ListView.builder(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 12),
+                  itemCount: chatSessions!.length,
+                  itemBuilder: (context, index) {
+                    final session = chatSessions![index];
+                    final isActive =
+                        session['session_id'] == activeSessionId;
+                    return Container(
+                      margin: const EdgeInsets.only(bottom: 2),
+                      decoration: BoxDecoration(
+                        color: isActive
+                            ? (isDark
+                                ? const Color(0xFF1E1A40)
+                                : const Color(0xFFEDE9FE))
+                            : Colors.transparent,
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      child: ListTile(
+                        dense: true,
+                        leading: Icon(Icons.chat_bubble_outline,
+                            size: 16,
+                            color: isActive
+                                ? primary
+                                : textTertiary),
+                        title: Text(
+                          session['title']?.isNotEmpty == true
+                              ? session['title']
+                              : 'New conversation',
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: GoogleFonts.inter(
+                            fontSize: 13,
+                            color: isActive
+                                ? textPrimary
+                                : textSecondary,
+                            fontWeight: isActive
+                                ? FontWeight.w500
+                                : FontWeight.w400,
+                          ),
+                        ),
+                        onTap: () {
+                          if (!isDesktop) Navigator.pop(context);
+                          if (onLoadSession != null) {
+                            onLoadSession!(session['session_id']);
+                          }
+                        },
+                      ),
+                    );
+                  },
+                ),
+              ),
+            ] else
+              const Spacer(),
+          ] else
+            const Spacer(),
+          // Bottom: user info + theme toggle
+          Padding(
+            padding: const EdgeInsets.all(16),
+            child: Column(
+              children: [
+                Divider(color: borderColor, height: 1),
+                const SizedBox(height: 12),
+                Row(
+                  children: [
+                    Container(
+                      width: 36,
+                      height: 36,
+                      decoration: BoxDecoration(
+                          color: surfaceVar, shape: BoxShape.circle),
+                      child: Center(
+                        child: Text(
+                          username.isNotEmpty
+                              ? username[0].toUpperCase()
+                              : 'U',
+                          style: GoogleFonts.plusJakartaSans(
+                              fontSize: 16,
+                              fontWeight: FontWeight.w700,
+                              color: primary),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: Text(
+                        username,
+                        style: GoogleFonts.inter(
+                            fontSize: 13,
+                            color: textPrimary,
+                            fontWeight: FontWeight.w500),
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                    IconButton(
+                      icon: Icon(
+                          isDark
+                              ? Icons.light_mode_outlined
+                              : Icons.dark_mode_outlined,
+                          size: 20),
+                      color: textSecondary,
+                      onPressed: () {
+                        Provider.of<ThemeProvider>(context,
+                                listen: false)
+                            .toggleTheme();
+                      },
+                      tooltip:
+                          isDark ? 'Switch to Light' : 'Switch to Dark',
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 8),
+        ],
+      ),
+    );
+
+    return Drawer(
+      elevation: isDesktop ? 0 : 16,
+      backgroundColor: surfaceColor,
+      child: content,
     );
   }
 }

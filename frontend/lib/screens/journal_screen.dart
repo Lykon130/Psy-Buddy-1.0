@@ -5,6 +5,7 @@ import '../models/journal_entry.dart';
 import '../services/api_service.dart';
 import '../providers/mood_provider.dart';
 import '../widgets/app_sidebar.dart';
+import '../widgets/app_bottom_nav.dart';
 
 class JournalScreen extends StatefulWidget {
   final String username;
@@ -27,14 +28,35 @@ class _JournalScreenState extends State<JournalScreen> {
   Future<void> _loadEntries() async {
     try {
       final data = await ApiService.fetchJournalEntries(widget.username);
-      if (mounted) {
-        setState(() {
-          entries = data;
-          _loading = false;
-        });
-      }
+      if (mounted) setState(() { entries = data; _loading = false; });
     } catch (e) {
       if (mounted) setState(() => _loading = false);
+    }
+  }
+
+  String _formatDate(DateTime dt) {
+    const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
+                    'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+    return '${months[dt.month - 1]} ${dt.day}, ${dt.year}';
+  }
+
+  Color _getEmotionColor(String emotion) {
+    switch (emotion.toLowerCase()) {
+      case 'joy': case 'amusement': case 'excitement':
+      case 'optimism': case 'surprise': case 'gratitude':
+        return const Color(0xFFF59E0B);
+      case 'admiration': case 'approval': case 'pride':
+        return const Color(0xFF10B981);
+      case 'caring': case 'love': case 'sadness': case 'grief':
+        return const Color(0xFF3B82F6);
+      case 'anger': case 'annoyance': case 'disgust':
+        return const Color(0xFFEF4444);
+      case 'fear': case 'nervousness': case 'embarrassment':
+        return const Color(0xFF8B5CF6);
+      case 'confusion':
+        return const Color(0xFFF97316);
+      default:
+        return const Color(0xFF6B7280);
     }
   }
 
@@ -46,54 +68,79 @@ class _JournalScreenState extends State<JournalScreen> {
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
-      builder: (context) => Container(
-        height: MediaQuery.of(context).size.height * 0.85,
-        decoration: BoxDecoration(
-          color: Theme.of(context).scaffoldBackgroundColor,
-          borderRadius: const BorderRadius.vertical(top: Radius.circular(30)),
-        ),
-        padding: EdgeInsets.only(
-          bottom: MediaQuery.of(context).viewInsets.bottom,
-          left: 24,
-          right: 24,
-          top: 32,
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text("Dear Diary...", style: GoogleFonts.lora(fontSize: 28, fontWeight: FontWeight.bold)),
-            const SizedBox(height: 24),
-            TextField(
-              controller: titleController,
-              style: GoogleFonts.inter(fontSize: 18, fontWeight: FontWeight.bold),
-              decoration: InputDecoration(
-                hintText: "Title of your entry",
-                hintStyle: GoogleFonts.inter(color: Colors.black38),
-                border: InputBorder.none,
-              ),
-            ),
-            const Divider(),
-            Expanded(
-              child: TextField(
-                controller: contentController,
-                maxLines: null,
-                style: GoogleFonts.lora(fontSize: 18, height: 1.6),
-                decoration: InputDecoration(
-                  hintText: "Write your thoughts here...",
-                  hintStyle: GoogleFonts.lora(color: Colors.black38),
-                  border: InputBorder.none,
+      builder: (ctx) {
+        final isDark = Theme.of(ctx).brightness == Brightness.dark;
+        final surfaceColor = isDark ? const Color(0xFF16161F) : Colors.white;
+        final borderColor = isDark ? const Color(0xFF2A2A3A) : const Color(0xFFE4E4EF);
+        final textPrimary = isDark ? const Color(0xFFF0F0F8) : const Color(0xFF0D0D12);
+        final textSecondary = isDark ? const Color(0xFF8B8BA7) : const Color(0xFF6B6B85);
+        final textTertiary = isDark ? const Color(0xFF5A5A72) : const Color(0xFF9898B0);
+
+        return Container(
+          height: MediaQuery.of(ctx).size.height * 0.88,
+          decoration: BoxDecoration(
+            color: surfaceColor,
+            borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+            border: Border(top: BorderSide(color: borderColor)),
+          ),
+          padding: EdgeInsets.only(
+            bottom: MediaQuery.of(ctx).viewInsets.bottom,
+            left: 24, right: 24, top: 20,
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Center(
+                child: Container(
+                  width: 40, height: 4,
+                  decoration: BoxDecoration(
+                    color: borderColor, borderRadius: BorderRadius.circular(2)),
                 ),
               ),
-            ),
-            const SizedBox(height: 16),
-            SizedBox(
-              width: double.infinity,
-              height: 55,
-              child: InkWell(
-                borderRadius: BorderRadius.circular(16),
+              const SizedBox(height: 24),
+              Text('New Entry',
+                style: GoogleFonts.plusJakartaSans(
+                  fontSize: 24, fontWeight: FontWeight.w700, color: textPrimary)),
+              const SizedBox(height: 4),
+              Text('Write freely, I\'m listening',
+                style: GoogleFonts.inter(fontSize: 14, color: textSecondary)),
+              const SizedBox(height: 24),
+              TextField(
+                controller: titleController,
+                style: GoogleFonts.plusJakartaSans(
+                  fontSize: 18, fontWeight: FontWeight.w600, color: textPrimary),
+                decoration: InputDecoration(
+                  hintText: 'Give your entry a title...',
+                  hintStyle: GoogleFonts.plusJakartaSans(
+                    fontSize: 18, fontWeight: FontWeight.w600, color: textTertiary),
+                  border: InputBorder.none,
+                  contentPadding: EdgeInsets.zero,
+                  isDense: true,
+                ),
+              ),
+              Divider(color: borderColor, height: 24),
+              Expanded(
+                child: TextField(
+                  controller: contentController,
+                  maxLines: null,
+                  style: GoogleFonts.lora(
+                    fontSize: 16, height: 1.7, color: textPrimary),
+                  decoration: InputDecoration(
+                    hintText: 'What\'s on your mind today?',
+                    hintStyle: GoogleFonts.lora(
+                      fontSize: 16, height: 1.7, color: textTertiary),
+                    border: InputBorder.none,
+                    contentPadding: EdgeInsets.zero,
+                    isDense: true,
+                  ),
+                ),
+              ),
+              const SizedBox(height: 16),
+              GestureDetector(
                 onTap: () async {
-                  if (titleController.text.trim().isEmpty || contentController.text.trim().isEmpty) return;
-                  Navigator.pop(context);
+                  if (titleController.text.trim().isEmpty ||
+                      contentController.text.trim().isEmpty) return;
+                  Navigator.pop(ctx);
                   setState(() => _loading = true);
                   try {
                     final entry = await ApiService.addJournalEntry(
@@ -101,130 +148,207 @@ class _JournalScreenState extends State<JournalScreen> {
                       titleController.text.trim(),
                       contentController.text.trim(),
                     );
-                    
                     if (context.mounted) {
-                      Provider.of<MoodProvider>(context, listen: false).setEmotion(entry.emotion);
+                      Provider.of<MoodProvider>(context, listen: false)
+                          .setEmotion(entry.emotion);
                     }
-
-                    setState(() {
-                       entries.insert(0, entry);
-                       _loading = false;
-                    });
+                    setState(() { entries.insert(0, entry); _loading = false; });
                   } catch (e) {
                     if (mounted) setState(() => _loading = false);
                   }
                 },
                 child: Container(
-                  alignment: Alignment.center,
+                  height: 52,
+                  width: double.infinity,
                   decoration: BoxDecoration(
-                    borderRadius: BorderRadius.circular(16),
+                    borderRadius: BorderRadius.circular(12),
                     gradient: const LinearGradient(
-                      colors: [Color(0xFFF9A826), Color(0xFF22C55E), Color(0xFF0EA5E9)],
+                      colors: [Color(0xFF7C6EF8), Color(0xFF5B8AF5), Color(0xFF4ECDC4)],
                     ),
                   ),
-                  child: Text("Save Entry", style: GoogleFonts.inter(fontSize: 16, color: Colors.white, fontWeight: FontWeight.bold)),
+                  child: Center(
+                    child: Text('Save Entry',
+                      style: GoogleFonts.plusJakartaSans(
+                        fontSize: 16, fontWeight: FontWeight.w600, color: Colors.white)),
+                  ),
                 ),
               ),
-            ),
-            const SizedBox(height: 24),
-          ],
-        ),
-      ),
+              const SizedBox(height: 24),
+            ],
+          ),
+        );
+      },
     );
   }
 
   Widget _buildEntryCard(JournalEntry entry) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final surfaceColor = isDark ? const Color(0xFF16161F) : Colors.white;
+    final borderColor = isDark ? const Color(0xFF2A2A3A) : const Color(0xFFE4E4EF);
+    final textPrimary = isDark ? const Color(0xFFF0F0F8) : const Color(0xFF0D0D12);
+    final textSecondary = isDark ? const Color(0xFF8B8BA7) : const Color(0xFF6B6B85);
+    final textTertiary = isDark ? const Color(0xFF5A5A72) : const Color(0xFF9898B0);
+    final emotionColor = _getEmotionColor(entry.emotion);
+
     return Container(
-      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      margin: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
       decoration: BoxDecoration(
-        color: Theme.of(context).cardColor,
-        borderRadius: BorderRadius.circular(24),
-        boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.04), blurRadius: 15, offset: const Offset(0, 5))],
+        color: surfaceColor,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: borderColor),
+        boxShadow: isDark
+            ? []
+            : [BoxShadow(
+                color: const Color(0xFF6B5EE8).withOpacity(0.06),
+                blurRadius: 12, offset: const Offset(0, 3))],
       ),
-      padding: const EdgeInsets.all(24),
+      padding: const EdgeInsets.all(20),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Expanded(child: Text(entry.title, style: GoogleFonts.inter(fontSize: 20, fontWeight: FontWeight.bold))),
+              Expanded(
+                child: Text(entry.title,
+                  style: GoogleFonts.plusJakartaSans(
+                    fontSize: 17, fontWeight: FontWeight.w600, color: textPrimary)),
+              ),
+              const SizedBox(width: 12),
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                 decoration: BoxDecoration(
-                  gradient: const LinearGradient(
-                    colors: [Color(0xFFF9A826), Color(0xFF22C55E), Color(0xFF0EA5E9)],
-                  ),
+                  color: emotionColor.withOpacity(isDark ? 0.18 : 0.12),
                   borderRadius: BorderRadius.circular(20),
                 ),
-                child: Text(
-                  entry.emotion.toUpperCase(),
-                  style: GoogleFonts.inter(fontSize: 10, fontWeight: FontWeight.bold, color: Colors.white),
-                ),
+                child: Text(entry.emotion.toUpperCase(),
+                  style: GoogleFonts.inter(
+                    fontSize: 10, fontWeight: FontWeight.w600, color: emotionColor)),
               ),
             ],
           ),
-          const SizedBox(height: 8),
+          const SizedBox(height: 6),
+          Text(_formatDate(entry.timestamp),
+            style: GoogleFonts.inter(fontSize: 12, color: textTertiary)),
+          const SizedBox(height: 14),
           Text(
-            "${entry.timestamp.toLocal()}".split(' ')[0],
-            style: GoogleFonts.inter(fontSize: 12, color: Colors.black45),
-          ),
-          const SizedBox(height: 16),
-          Text(
-            entry.content,
-            style: GoogleFonts.lora(fontSize: 16, height: 1.6, color: Colors.black87),
+            entry.content.length > 200
+                ? '${entry.content.substring(0, 200)}...'
+                : entry.content,
+            style: GoogleFonts.lora(
+              fontSize: 15, height: 1.7, color: textSecondary),
           ),
         ],
       ),
     );
   }
 
-  Widget _buildContent() {
+  Widget _buildContent(bool isDesktop) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final bgColor = isDark ? const Color(0xFF0D0D12) : const Color(0xFFF8F8FD);
+    final surfaceColor = isDark ? const Color(0xFF16161F) : Colors.white;
+    final borderColor = isDark ? const Color(0xFF2A2A3A) : const Color(0xFFE4E4EF);
+    final textPrimary = isDark ? const Color(0xFFF0F0F8) : const Color(0xFF0D0D12);
+    final textSecondary = isDark ? const Color(0xFF8B8BA7) : const Color(0xFF6B6B85);
+    final textTertiary = isDark ? const Color(0xFF5A5A72) : const Color(0xFF9898B0);
+    final primary = isDark ? const Color(0xFF7C6EF8) : const Color(0xFF6B5EE8);
+
     return Scaffold(
-      backgroundColor: Colors.transparent,
+      backgroundColor: isDesktop ? surfaceColor : bgColor,
       appBar: AppBar(
-        title: Text("My Journal", style: GoogleFonts.lora(fontWeight: FontWeight.bold, color: Colors.white)),
-        centerTitle: true,
-        iconTheme: const IconThemeData(color: Colors.white),
-        backgroundColor: Colors.transparent,
+        backgroundColor: isDesktop ? surfaceColor : bgColor,
         elevation: 0,
-        flexibleSpace: Container(
-          decoration: const BoxDecoration(
-            gradient: LinearGradient(
-              colors: [Color(0xFFF9A826), Color(0xFF22C55E), Color(0xFF0EA5E9)],
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
+        title: Text('My Journal',
+          style: GoogleFonts.plusJakartaSans(
+            fontSize: 20, fontWeight: FontWeight.w600, color: textPrimary)),
+        centerTitle: false,
+        automaticallyImplyLeading: false,
+        leading: isDesktop
+            ? null
+            : IconButton(
+                icon: Icon(Icons.menu, color: textSecondary, size: 22),
+                onPressed: () => Scaffold.of(context).openDrawer()),
+        actions: [
+          if (entries.isNotEmpty)
+            Container(
+              margin: const EdgeInsets.only(right: 16),
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+              decoration: BoxDecoration(
+                color: isDark
+                    ? const Color(0xFF2D2760)
+                    : const Color(0xFFEDE9FF),
+                borderRadius: BorderRadius.circular(20),
+              ),
+              child: Text('${entries.length} entries',
+                style: GoogleFonts.inter(
+                  fontSize: 12, color: primary, fontWeight: FontWeight.w500)),
             ),
-          ),
+        ],
+        bottom: PreferredSize(
+          preferredSize: const Size.fromHeight(1),
+          child: Container(height: 1, color: borderColor),
         ),
       ),
       body: _loading
-          ? Center(child: CircularProgressIndicator(color: Theme.of(context).primaryColor))
+          ? Center(child: CircularProgressIndicator(color: primary, strokeWidth: 2))
           : entries.isEmpty
-              ? Center(child: Text("No entries yet. Start writing!", style: GoogleFonts.lora(fontSize: 18, color: Colors.black45)))
+              ? Center(
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Container(
+                        width: 80, height: 80,
+                        decoration: BoxDecoration(
+                          color: isDark
+                              ? const Color(0xFF1E1E2A)
+                              : const Color(0xFFF0F0F8),
+                          shape: BoxShape.circle,
+                        ),
+                        child: Icon(Icons.book_outlined,
+                            size: 36, color: textTertiary),
+                      ),
+                      const SizedBox(height: 20),
+                      Text('No entries yet',
+                        style: GoogleFonts.plusJakartaSans(
+                          fontSize: 20, fontWeight: FontWeight.w600,
+                          color: textPrimary)),
+                      const SizedBox(height: 8),
+                      Text('Start writing your thoughts',
+                        style: GoogleFonts.inter(
+                          fontSize: 15, color: textSecondary)),
+                    ],
+                  ),
+                )
               : ListView.builder(
                   physics: const BouncingScrollPhysics(),
+                  padding: const EdgeInsets.only(top: 8, bottom: 100),
                   itemCount: entries.length,
                   itemBuilder: (_, i) => _buildEntryCard(entries[i]),
                 ),
-      floatingActionButton: InkWell(
+      floatingActionButton: GestureDetector(
         onTap: _showAddEntryBottomSheet,
-        borderRadius: BorderRadius.circular(30),
         child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+          height: 52,
+          padding: const EdgeInsets.symmetric(horizontal: 20),
           decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(30),
+            borderRadius: BorderRadius.circular(26),
             gradient: const LinearGradient(
-              colors: [Color(0xFFF9A826), Color(0xFF22C55E), Color(0xFF0EA5E9)],
+              colors: [Color(0xFF7C6EF8), Color(0xFF5B8AF5)],
             ),
-            boxShadow: const [BoxShadow(color: Colors.black26, blurRadius: 8, offset: Offset(0, 4))],
+            boxShadow: [
+              BoxShadow(
+                color: const Color(0xFF7C6EF8).withOpacity(0.35),
+                blurRadius: 16, offset: const Offset(0, 4)),
+            ],
           ),
           child: Row(
             mainAxisSize: MainAxisSize.min,
             children: [
-              const Icon(Icons.edit, color: Colors.white),
+              const Icon(Icons.edit_outlined, color: Colors.white, size: 18),
               const SizedBox(width: 8),
-              Text("Write", style: GoogleFonts.inter(color: Colors.white, fontWeight: FontWeight.bold)),
+              Text('Write',
+                style: GoogleFonts.plusJakartaSans(
+                  fontSize: 15, fontWeight: FontWeight.w600, color: Colors.white)),
             ],
           ),
         ),
@@ -234,53 +358,45 @@ class _JournalScreenState extends State<JournalScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final bool isDesktopContext = MediaQuery.of(context).size.width > 800;
-    final primaryColor = Theme.of(context).primaryColor;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final bgColor = isDark ? const Color(0xFF0D0D12) : const Color(0xFFF8F8FD);
+    final borderColor = isDark ? const Color(0xFF2A2A3A) : const Color(0xFFE4E4EF);
+    final primaryColor = Theme.of(context).colorScheme.primary;
 
     return Scaffold(
-      backgroundColor: isDesktopContext ? primaryColor : Colors.white,
-      drawer: isDesktopContext ? null : AppSidebar(
+      backgroundColor: bgColor,
+      drawer: AppSidebar(
         isDesktop: false,
         currentRoute: '/journal',
         username: widget.username,
         primaryColor: primaryColor,
       ),
+      bottomNavigationBar: LayoutBuilder(
+        builder: (context, constraints) => constraints.maxWidth <= 800
+            ? AppBottomNav(currentRoute: '/journal', username: widget.username)
+            : const SizedBox.shrink(),
+      ),
       body: LayoutBuilder(
         builder: (context, constraints) {
           final isDesktop = constraints.maxWidth > 800;
           if (isDesktop) {
-            return Container(
-              color: primaryColor,
-              padding: const EdgeInsets.all(24.0),
-              child: Container(
-                clipBehavior: Clip.antiAlias,
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.circular(24.0),
-                  boxShadow: const [BoxShadow(color: Colors.black12, blurRadius: 20)],
+            return Row(
+              children: [
+                SizedBox(
+                  width: 280,
+                  child: AppSidebar(
+                    isDesktop: true,
+                    currentRoute: '/journal',
+                    username: widget.username,
+                    primaryColor: primaryColor,
+                  ),
                 ),
-                child: Row(
-                  children: [
-                    SizedBox(
-                      width: 280,
-                      child: AppSidebar(
-                        isDesktop: true,
-                        currentRoute: '/journal',
-                        username: widget.username,
-                        primaryColor: primaryColor,
-                      ),
-                    ),
-                    VerticalDivider(width: 1, color: Colors.grey[200], thickness: 1),
-                    Expanded(
-                      child: _buildContent(),
-                    ),
-                  ],
-                ),
-              ),
+                VerticalDivider(width: 1, color: borderColor, thickness: 1),
+                Expanded(child: _buildContent(true)),
+              ],
             );
-          } else {
-            return _buildContent();
           }
+          return _buildContent(false);
         },
       ),
     );
