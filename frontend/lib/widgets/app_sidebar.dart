@@ -6,6 +6,7 @@ import '../screens/chat_screen.dart';
 import '../screens/journal_screen.dart';
 import '../screens/dream_screen.dart';
 import '../screens/mood_chart_screen.dart';
+import '../screens/memory_settings_screen.dart';
 
 class AppSidebar extends StatelessWidget {
   final bool isDesktop;
@@ -185,6 +186,12 @@ class AppSidebar extends StatelessWidget {
                     title: 'Insights',
                     route: '/mood',
                     destination: MoodScreen(username: username)),
+                const SizedBox(height: 4),
+                _buildNavItem(context,
+                    icon: Icons.privacy_tip_outlined,
+                    title: 'Memory & Privacy',
+                    route: '/memory',
+                    destination: MemorySettingsScreen(username: username)),
               ],
             ),
           ),

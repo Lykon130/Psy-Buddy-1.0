@@ -4,9 +4,11 @@ import uuid
 
 from .models import ChatRequest
 from app.utils.bert_emotion_api import detect_emotion
-from app.chat.gpt_service import get_ai_response, extract_new_memory
+from app.chat.gpt_service import get_ai_response
 from app.utils.config import supabase
 from app.utils.db import get_or_create_user
+from app.memory.service import get_facts, store_new_facts
+from app.safety.service import assess_risk, log_safety_event, CRISIS_RESPONSE_TEXT
 
 router = APIRouter()
 
@@ -18,27 +20,6 @@ emotion_to_score = {
     "angry": 0.2,
     "anxious": 0.25
 }
-
-def update_global_memory_task(user_id: str, message: str):
-    try:
-        resp = supabase.table("chats").select("id, message").eq("user_id", user_id).eq("session_id", "global_memory").limit(1).execute()
-        current_mem = resp.data[0]["message"] if resp.data else ""
-        repo_id = resp.data[0]["id"] if resp.data else None
-        
-        new_mem = extract_new_memory(current_mem, message)
-        if new_mem != current_mem and new_mem.strip():
-            if repo_id:
-                supabase.table("chats").update({"message": new_mem}).eq("id", repo_id).execute()
-            else:
-                supabase.table("chats").insert({
-                    "user_id": user_id,
-                    "session_id": "global_memory",
-                    "role": "system",
-                    "message": new_mem,
-                    "timestamp": datetime.utcnow().isoformat()
-                }).execute()
-    except Exception as e:
-        print("[Memory Update Error]", e)
 
 
 @router.post("/")
@@ -57,25 +38,33 @@ def chat(request: ChatRequest, background_tasks: BackgroundTasks):
         # Get user_id from username, create lazily if missing (OAuth)
         user_id = get_or_create_user(request.username)
 
-        # Background async extraction memory pattern
-        background_tasks.add_task(update_global_memory_task, user_id, request.message)
+        # Minimal Crisis Safety Core (L17) — runs ahead of persona/LLM response
+        risk = assess_risk(request.message)
+        persona = request.persona
 
-        # Grab exact global_memory to inject 
-        mem_resp = supabase.table("chats").select("message").eq("user_id", user_id).eq("session_id", "global_memory").limit(1).execute()
-        global_memory_str = mem_resp.data[0]["message"] if mem_resp.data else ""
+        if risk.flagged:
+            log_safety_event(user_id, session_id, risk)
+            persona = "empath"
+            reply = CRISIS_RESPONSE_TEXT
+        else:
+            # Background async fact extraction (structured memory)
+            background_tasks.add_task(store_new_facts, user_id, session_id, request.message)
 
-        # Fetch only messages for exact session
-        history_response = supabase.table("chats").select("*").eq("user_id", user_id).eq("session_id", session_id).order("timestamp").execute()
-        all_messages = history_response.data
+            # Confirmed long-term facts to inject as context
+            confirmed_facts = [f["fact_text"] for f in get_facts(user_id, confirmed_only=True)]
 
-        history_for_gpt = [
-            {"role": msg["role"], "content": msg["message"]}
-            for msg in all_messages
-        ]
-        history_for_gpt.append({"role": "user", "content": request.message})
+            # Fetch only messages for exact session
+            history_response = supabase.table("chats").select("*").eq("user_id", user_id).eq("session_id", session_id).order("timestamp").execute()
+            all_messages = history_response.data
 
-        # Get AI reply mapped
-        reply = get_ai_response(history_for_gpt, request.persona, global_memory_str)
+            history_for_gpt = [
+                {"role": msg["role"], "content": msg["message"]}
+                for msg in all_messages
+            ]
+            history_for_gpt.append({"role": "user", "content": request.message})
+
+            # Get AI reply mapped
+            reply = get_ai_response(history_for_gpt, persona, confirmed_facts)
 
         # If session is new, generate title
         existing_session_response = supabase.table("chats").select("id").eq("user_id", user_id).eq("session_id", session_id).limit(1).execute()
@@ -94,7 +83,7 @@ def chat(request: ChatRequest, background_tasks: BackgroundTasks):
             "role": "user",
             "message": request.message,
             "emotion": emotion,
-            "persona": request.persona,
+            "persona": persona,
             "session_id": session_id,
             "timestamp": datetime.utcnow().isoformat()
         }
@@ -108,7 +97,7 @@ def chat(request: ChatRequest, background_tasks: BackgroundTasks):
             "user_id": user_id,
             "role": "assistant",
             "message": reply,
-            "persona": request.persona,
+            "persona": persona,
             "session_id": session_id,
             "timestamp": datetime.utcnow().isoformat()
         }
@@ -117,8 +106,8 @@ def chat(request: ChatRequest, background_tasks: BackgroundTasks):
             
         supabase.table("chats").insert(assistant_doc).execute()
 
-        # Update mood logs if there is an emotion
-        if emotion:
+        # Update mood logs if there is an emotion (skip for crisis-flagged messages)
+        if emotion and not risk.flagged:
             score = emotion_to_score.get(emotion, 0.5)
             supabase.table("mood_logs").insert({
                 "user_id": user_id,
@@ -130,7 +119,9 @@ def chat(request: ChatRequest, background_tasks: BackgroundTasks):
         return {
             "reply": reply,
             "emotion": emotion,
-            "session_id": session_id
+            "session_id": session_id,
+            "persona": persona,
+            "risk_flagged": risk.flagged
         }
 
     except Exception as e:

@@ -155,6 +155,27 @@ class ApiService {
   }
 
   // ======================
+  // MEMORY
+  // ======================
+  static Future<List<Map<String, dynamic>>> fetchMemoryFacts(String username) {
+    return _safeRequest(() async {
+      final res = await http
+          .get(Uri.parse('$baseUrl/memory/$username'))
+          .timeout(_timeout);
+      return List<Map<String, dynamic>>.from(_handleResponse(res));
+    });
+  }
+
+  static Future<void> deleteMemoryFact(String username, String factId) {
+    return _safeRequest(() async {
+      final res = await http
+          .delete(Uri.parse('$baseUrl/memory/$username/$factId'))
+          .timeout(_timeout);
+      _handleResponse(res);
+    });
+  }
+
+  // ======================
   // MOOD
   // ======================
   static Future<Map<String, dynamic>> fetchMoodData(

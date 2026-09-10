@@ -172,6 +172,12 @@ class _ChatScreenState extends State<ChatScreen>
           if (res.containsKey('session_id')) {
             activeSessionId = res['session_id'];
           }
+          // Crisis Safety Core may override the persona server-side (forces
+          // Empath) — reflect that in the UI so the reply reads coherently.
+          final responsePersona = res['persona']?.toString();
+          if (responsePersona != null && personas.containsKey(responsePersona)) {
+            currentPersona = responsePersona;
+          }
           messages.add(ChatMessage(
             id: DateTime.now().millisecondsSinceEpoch.toString(),
             sender: 'assistant',
