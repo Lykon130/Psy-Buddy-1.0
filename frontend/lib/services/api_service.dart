@@ -175,6 +175,120 @@ class ApiService {
     });
   }
 
+  static Future<Map<String, dynamic>> updateMemoryFact(
+      String username, String factId, String factText) {
+    return _safeRequest(() async {
+      final res = await http
+          .patch(
+            Uri.parse('$baseUrl/memory/$username/$factId'),
+            headers: {"Content-Type": "application/json"},
+            body: jsonEncode({"fact_text": factText}),
+          )
+          .timeout(_timeout);
+      return Map<String, dynamic>.from(_handleResponse(res));
+    });
+  }
+
+  // ======================
+  // IDENTITY
+  // ======================
+  static Future<Map<String, dynamic>> fetchIdentityProfile(String username) {
+    return _safeRequest(() async {
+      final res = await http
+          .get(Uri.parse('$baseUrl/identity/$username'))
+          .timeout(_timeout);
+      return Map<String, dynamic>.from(_handleResponse(res));
+    });
+  }
+
+  // ======================
+  // GROWTH TIMELINE
+  // ======================
+  static Future<List<Map<String, dynamic>>> fetchGoals(String username,
+      {bool includeDrafts = false}) {
+    return _safeRequest(() async {
+      final res = await http
+          .get(Uri.parse(
+              '$baseUrl/growth/$username/goals?include_drafts=$includeDrafts'))
+          .timeout(_timeout);
+      return List<Map<String, dynamic>>.from(_handleResponse(res));
+    });
+  }
+
+  static Future<Map<String, dynamic>> createGoal(
+      String username, String title, String? description) {
+    return _safeRequest(() async {
+      final res = await http
+          .post(
+            Uri.parse('$baseUrl/growth/$username/goals'),
+            headers: {"Content-Type": "application/json"},
+            body: jsonEncode({"title": title, "description": description}),
+          )
+          .timeout(_timeout);
+      return Map<String, dynamic>.from(_handleResponse(res));
+    });
+  }
+
+  static Future<Map<String, dynamic>> updateGoal(
+      String username, String goalId, Map<String, dynamic> fields) {
+    return _safeRequest(() async {
+      final res = await http
+          .patch(
+            Uri.parse('$baseUrl/growth/$username/goals/$goalId'),
+            headers: {"Content-Type": "application/json"},
+            body: jsonEncode(fields),
+          )
+          .timeout(_timeout);
+      return Map<String, dynamic>.from(_handleResponse(res));
+    });
+  }
+
+  static Future<void> deleteGoal(String username, String goalId) {
+    return _safeRequest(() async {
+      final res = await http
+          .delete(Uri.parse('$baseUrl/growth/$username/goals/$goalId'))
+          .timeout(_timeout);
+      _handleResponse(res);
+    });
+  }
+
+  static Future<Map<String, dynamic>> addMilestone(
+      String username, String goalId, String description) {
+    return _safeRequest(() async {
+      final res = await http
+          .post(
+            Uri.parse('$baseUrl/growth/$username/goals/$goalId/milestones'),
+            headers: {"Content-Type": "application/json"},
+            body: jsonEncode({"description": description}),
+          )
+          .timeout(_timeout);
+      return Map<String, dynamic>.from(_handleResponse(res));
+    });
+  }
+
+  static Future<Map<String, dynamic>> markMilestoneAchieved(
+      String username, String milestoneId) {
+    return _safeRequest(() async {
+      final res = await http
+          .patch(
+            Uri.parse('$baseUrl/growth/$username/milestones/$milestoneId'),
+            headers: {"Content-Type": "application/json"},
+            body: jsonEncode({"achieved_at": DateTime.now().toUtc().toIso8601String()}),
+          )
+          .timeout(_timeout);
+      return Map<String, dynamic>.from(_handleResponse(res));
+    });
+  }
+
+  static Future<void> deleteMilestone(String username, String milestoneId) {
+    return _safeRequest(() async {
+      final res = await http
+          .delete(Uri.parse('$baseUrl/growth/$username/milestones/$milestoneId'))
+          .timeout(_timeout);
+      _handleResponse(res);
+    });
+  }
+
   // ======================
   // MOOD
   // ======================

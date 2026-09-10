@@ -4,6 +4,8 @@ from openai import OpenAI
 from app.config import OPENAI_API_KEY
 from app.utils.config import supabase
 from app.memory.models import MemoryFact
+from app.identity.service import aggregate_identity_profile
+from app.growth.service import create_draft_goal
 
 client = OpenAI(base_url="https://openrouter.ai/api/v1", api_key=OPENAI_API_KEY)
 
@@ -71,17 +73,35 @@ def store_new_facts(user_id: str, session_id: str, message: str) -> None:
     try:
         existing = [f["fact_text"] for f in get_facts(user_id)]
         new_facts = extract_facts(message, existing)
+        any_confirmed = False
         for fact in new_facts:
-            supabase.table("memory_facts").insert(
-                {
-                    "user_id": user_id,
-                    "fact_text": fact.fact_text,
-                    "category": fact.category,
-                    "confidence": fact.confidence,
-                    "source": fact.source,
-                    "session_id": session_id,
-                    "confirmed": fact.confirmed,
-                }
-            ).execute()
+            inserted = (
+                supabase.table("memory_facts")
+                .insert(
+                    {
+                        "user_id": user_id,
+                        "fact_text": fact.fact_text,
+                        "category": fact.category,
+                        "confidence": fact.confidence,
+                        "source": fact.source,
+                        "session_id": session_id,
+                        "confirmed": fact.confirmed,
+                    }
+                )
+                .execute()
+            )
+            any_confirmed = any_confirmed or fact.confirmed
+
+            # Growth Timeline (L7): a goal-category fact seeds a draft goal,
+            # which only becomes visible once the user separately confirms
+            # it in the Growth Timeline screen.
+            if fact.category == "goal":
+                fact_id = inserted.data[0]["id"] if inserted.data else None
+                create_draft_goal(user_id, fact_id, fact.fact_text)
+
+        # Identity profile (L5) only depends on the confirmed subset, so only
+        # re-aggregate when this message actually changed that subset.
+        if any_confirmed:
+            aggregate_identity_profile(user_id)
     except Exception as e:
         print("[Memory Store Error]", e)

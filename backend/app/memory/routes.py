@@ -1,7 +1,8 @@
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, BackgroundTasks
 
 from app.memory.models import MemoryFactUpdate
 from app.memory.service import get_facts
+from app.identity.service import aggregate_identity_profile
 from app.utils.config import supabase
 from app.utils.db import get_or_create_user
 
@@ -18,7 +19,7 @@ def list_facts(username: str):
 
 
 @router.patch("/{username}/{fact_id}")
-def update_fact(username: str, fact_id: str, update: MemoryFactUpdate):
+def update_fact(username: str, fact_id: str, update: MemoryFactUpdate, background_tasks: BackgroundTasks):
     try:
         user_id = get_or_create_user(username)
         data = {k: v for k, v in update.dict().items() if v is not None}
@@ -34,6 +35,10 @@ def update_fact(username: str, fact_id: str, update: MemoryFactUpdate):
         )
         if not result.data:
             raise HTTPException(status_code=404, detail="Memory fact not found")
+
+        if data.get("confirmed") is True:
+            background_tasks.add_task(aggregate_identity_profile, user_id)
+
         return result.data[0]
     except HTTPException:
         raise

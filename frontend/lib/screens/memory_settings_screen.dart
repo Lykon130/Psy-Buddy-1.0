@@ -15,11 +15,23 @@ class MemorySettingsScreen extends StatefulWidget {
 class _MemorySettingsScreenState extends State<MemorySettingsScreen> {
   bool _loading = false;
   List<Map<String, dynamic>> _facts = [];
+  Map<String, dynamic>? _identityProfile;
 
   @override
   void initState() {
     super.initState();
     _fetchFacts();
+    _fetchIdentityProfile();
+  }
+
+  Future<void> _fetchIdentityProfile() async {
+    try {
+      final profile = await ApiService.fetchIdentityProfile(widget.username);
+      if (mounted) setState(() => _identityProfile = profile);
+    } catch (_) {
+      // Identity profile is a nice-to-have summary; fail silently rather
+      // than blocking the rest of the Memory & Privacy screen.
+    }
   }
 
   Future<void> _fetchFacts() async {
@@ -49,6 +61,115 @@ class _MemorySettingsScreenState extends State<MemorySettingsScreen> {
       }
       _fetchFacts();
     }
+  }
+
+  Future<void> _editFact(Map<String, dynamic> fact) async {
+    final id = fact['id'].toString();
+    final controller =
+        TextEditingController(text: fact['fact_text']?.toString() ?? '');
+
+    final newText = await showDialog<String>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('Edit memory'),
+        content: TextField(
+          controller: controller,
+          autofocus: true,
+          maxLines: 3,
+          decoration: const InputDecoration(border: OutlineInputBorder()),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            onPressed: () =>
+                Navigator.of(dialogContext).pop(controller.text.trim()),
+            child: const Text('Save'),
+          ),
+        ],
+      ),
+    );
+
+    if (newText == null ||
+        newText.isEmpty ||
+        newText == fact['fact_text']?.toString()) {
+      return;
+    }
+
+    final previousText = fact['fact_text'];
+    setState(() {
+      final index = _facts.indexWhere((f) => f['id'].toString() == id);
+      if (index != -1) _facts[index]['fact_text'] = newText;
+    });
+    try {
+      await ApiService.updateMemoryFact(widget.username, id, newText);
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context)
+            .showSnackBar(SnackBar(content: Text('Error: $e')));
+      }
+      setState(() {
+        final index = _facts.indexWhere((f) => f['id'].toString() == id);
+        if (index != -1) _facts[index]['fact_text'] = previousText;
+      });
+    }
+  }
+
+  bool get _hasIdentityProfile {
+    final p = _identityProfile;
+    if (p == null) return false;
+    final topics = (p['topics_to_avoid'] as List?) ?? [];
+    final coping = (p['coping_preferences'] as List?) ?? [];
+    return (p['communication_style'] != null) ||
+        (p['default_persona_preference'] != null) ||
+        topics.isNotEmpty ||
+        coping.isNotEmpty;
+  }
+
+  List<Widget> _buildIdentityRows(Color textPrimary, Color textSecondary) {
+    final p = _identityProfile!;
+    final rows = <MapEntry<String, String>>[];
+
+    if (p['communication_style'] != null) {
+      rows.add(MapEntry('Communication style', p['communication_style'].toString()));
+    }
+    if (p['default_persona_preference'] != null) {
+      rows.add(MapEntry('Preferred persona', p['default_persona_preference'].toString()));
+    }
+    final topics = ((p['topics_to_avoid'] as List?) ?? []).cast<dynamic>();
+    if (topics.isNotEmpty) {
+      rows.add(MapEntry('Topics to avoid', topics.join(', ')));
+    }
+    final coping = ((p['coping_preferences'] as List?) ?? []).cast<dynamic>();
+    if (coping.isNotEmpty) {
+      rows.add(MapEntry('Coping preferences', coping.join(', ')));
+    }
+
+    return [
+      for (int i = 0; i < rows.length; i++)
+        Padding(
+          padding: EdgeInsets.only(bottom: i == rows.length - 1 ? 0 : 10),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              SizedBox(
+                width: 140,
+                child: Text(rows[i].key,
+                    style: GoogleFonts.inter(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w500,
+                        color: textSecondary)),
+              ),
+              Expanded(
+                child: Text(rows[i].value,
+                    style: GoogleFonts.inter(fontSize: 13, color: textPrimary)),
+              ),
+            ],
+          ),
+        ),
+    ];
   }
 
   Widget _buildContent(bool isDesktop) {
@@ -123,6 +244,27 @@ class _MemorySettingsScreenState extends State<MemorySettingsScreen> {
                       ),
                     ),
                     const SizedBox(height: 24),
+                    if (_hasIdentityProfile) ...[
+                      Text('About you',
+                          style: GoogleFonts.plusJakartaSans(
+                              fontSize: 16,
+                              fontWeight: FontWeight.w600,
+                              color: textPrimary)),
+                      const SizedBox(height: 12),
+                      Container(
+                        padding: const EdgeInsets.all(16),
+                        decoration: BoxDecoration(
+                          color: surfaceColor,
+                          borderRadius: BorderRadius.circular(14),
+                          border: Border.all(color: borderColor),
+                        ),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: _buildIdentityRows(textPrimary, textSecondary),
+                        ),
+                      ),
+                      const SizedBox(height: 24),
+                    ],
                     Text('What PsyBuddy remembers',
                         style: GoogleFonts.plusJakartaSans(
                             fontSize: 16,
@@ -179,6 +321,13 @@ class _MemorySettingsScreenState extends State<MemorySettingsScreen> {
                                     ),
                                   ],
                                 ),
+                              ),
+                              IconButton(
+                                icon: const Icon(Icons.edit_outlined,
+                                    size: 20),
+                                color: textTertiary,
+                                tooltip: 'Edit',
+                                onPressed: () => _editFact(fact),
                               ),
                               IconButton(
                                 icon: const Icon(Icons.delete_outline,

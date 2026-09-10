@@ -28,18 +28,18 @@ Each PSYCHE layer, matched to its product-layer name in the docx and its module 
 |---|---|---|---|
 | L1 Multimodal Perception (Perception) | Interaction Layer | Emotion AI | **Partial** — text-only GoEmotions classifier (`utils/bert_emotion_api.py`); no voice/behavioral/vision signals |
 | L2 Context Fusion (Perception) | Understanding Layer | — | **Partial (Phase 2)** — `backend/app/context/service.py::build_context_packet` fuses current emotion + Mental State vector + recent journal themes + confirmed memory facts + risk flag into one per-turn `ContextPacket`; no cognitive-load/motivation signals yet |
-| L3 Cognitive Core (Cognitive Reasoning) | Cognitive Layer | Custom PsyBuddy LLM | **Partial (stub)** — a single pass-through call to an OpenRouter model with a persona system prompt; no planning, no retrieval-based reasoning. `get_ai_response` now accepts an unused `context` param reserved for Phase 3 |
+| L3 Cognitive Core (Cognitive Reasoning) | Cognitive Layer | Custom PsyBuddy LLM | **Partial (Phase 3)** — still a single OpenRouter call, no retrieval-based reasoning, but it's no longer a bare pass-through: `get_ai_response` now takes a `strategy_guidance` list (from L8/L9 below) folded into the system prompt, still exactly one call per turn |
 | L4 Mental State Engine (Psych. Modeling) | Understanding/Relational Layer | Emotion AI (mental_state, stress_index) | **Partial (Phase 2)** — `backend/app/mental_states/service.py` computes a real vector (valence, stress, arousal, trend) per turn from the emotion distribution and persists it to `mental_states`; the old single 0.2–0.9 `mood_logs` score is kept only for backward compat, not superseded in the UI yet; no cognitive-load/motivation dimensions |
-| L5 Identity Modeling (Psych. Modeling) | Relational Layer (Profile) | Personality AI | **Not started** |
+| L5 Identity Modeling (Psych. Modeling) | Relational Layer (Profile) | Personality AI | **Partial (Phase 3)** — `backend/app/identity/` derives a single structured `identity_profile` row (communication style, default persona preference, topics to avoid, coping preferences) from the user's *confirmed* memory facts via an LLM aggregation pass, re-run whenever the confirmed set changes; read-only "About you" card in `memory_settings_screen.dart` |
 | L6 Trust Model (Psych. Modeling) | — (implicit in consent) | — | **Not started** |
-| L7 Life Direction Model (Psych. Modeling) | Relational Layer (Growth Timeline) | — | **Not started** — no goals/milestones data model at all |
-| L8 Intervention Planner (Intervention) | Cognitive Layer (Orchestrator) | Persona Control Layer | **Not started** — no strategy selection beyond the persona the client sends |
-| L9 Emotional Simulation (Intervention) | Response contract | Safety AI (implicit) | **Not started** |
+| L7 Life Direction Model (Psych. Modeling) | Relational Layer (Growth Timeline) | — | **Partial (Phase 3)** — `backend/app/growth/` adds `goals`/`milestones` tables; `category="goal"` memory facts seed a draft goal that only becomes real once the user confirms it in the new `growth_timeline_screen.dart` (separate consent step from confirming the underlying fact) |
+| L8 Intervention Planner (Intervention) | Cognitive Layer (Orchestrator) | Persona Control Layer | **Partial (Phase 3)** — `backend/app/intervention/` rule-based selector (mirrors the L10 orchestrator's deterministic style) picks one of 6 strategies (reflective_listening, grounding_exercise, goal_check_in, reframe, validate_and_normalize, psychoeducation_light) from the fused context + active goals, folded into the reply prompt as guidance — still not retrieval- or plan-driven |
+| L9 Emotional Simulation (Intervention) | Response contract | Safety AI (implicit) | **Partial (Phase 3), scoped down** — `backend/app/simulation/` is a cheap rule-based tone/hedging check (persona vs. mental state mismatch), not the draft-then-critique loop the layer name implies; deliberate scope cut to avoid a second LLM call per turn |
 | L10 Persona Router (Cognitive Reasoning) | Mode selection (Orchestrator) | Persona Control Layer | **Partial (Phase 2)** — 3 persona system prompts (Empath/Coach/Friend) exist and remain user-selectable/primary; a new rule-based orchestrator (`backend/app/orchestrator/service.py`) computes a `suggested_persona` + `suggested_retrieval_scope` from the fused context packet and returns it in the `/chat/` response, but it is advisory-only and never overrides the client's choice (per decision #3) |
 | L11 Response Generation (Cognitive Reasoning) | Response contract | Custom PsyBuddy LLM | **Working** — functional, but ungrounded (no retrieval, no safety pass) |
-| L12 Self-Reflection (Learning) | Evaluation framework | — | **Not started** |
+| L12 Self-Reflection (Learning) | Evaluation framework | — | **Partial (Phase 3)** — `backend/app/reflection/` scores every assistant reply in the background on empathy markers, user/reply word-overlap relevance, crisis-protocol adherence, and persona consistency, storing to `response_scores`. Heuristic only (no LLM judge yet), and observability-only — not yet wired into automatic prompt/rule refinement |
 | L13 Meta-Learning (Learning) | — | — | **Partial** — `continuous_trainer.py` re-fine-tunes the emotion classifier on the user's own labeled chat/journal text; a real, working sliver of self-improvement, just scoped to emotion detection, not dialogue quality |
-| L14 Hybrid Memory (crosscutting) | Relational Memory | Memory Engine | **Partial (Phase 1)** — structured `memory_facts` store (`backend/app/memory/`) replaced the single-blob approach: per-fact `category`, `confidence`, `source` (provenance), `confirmed` flag; visible + deletable via `frontend/lib/screens/memory_settings_screen.dart` (editing is backend-only so far, no UI affordance yet). Still no vector/semantic store despite FAISS being in the architecture diagrams (deferred to Phase 4) |
+| L14 Hybrid Memory (crosscutting) | Relational Memory | Memory Engine | **Partial (Phase 1)** — structured `memory_facts` store (`backend/app/memory/`) replaced the single-blob approach: per-fact `category`, `confidence`, `source` (provenance), `confirmed` flag; visible + deletable + editable via `frontend/lib/screens/memory_settings_screen.dart`. Still no vector/semantic store despite FAISS being in the architecture diagrams (deferred to Phase 4) |
 | L15 Predictive Mental Health Engine (Safety/Governance) | explicitly deferred (docx "what will not ship early") | Predictive Engine | **Not started** — correctly matches docx's own phasing |
 | L16 Cognitive Load Monitor (Learning) | — | — | **Not started** |
 | L17 Crisis Safety Core (Safety/Governance) | Safety Layer | Safety AI / Crisis Detection | **Partial (Phase 1)** — keyword/phrase-based `assess_risk()` (`backend/app/safety/`) runs ahead of the persona/LLM call, forces Empath, returns a static crisis-resource response, and logs to `safety_events` for internal monitoring. Still keyword-only (no classifier), no human escalation workflow beyond the log table. The onboarding disclaimer (`disclaimer_screen.dart`) remains as the separate legal notice it always was |
@@ -57,7 +57,7 @@ Each PSYCHE layer, matched to its product-layer name in the docx and its module 
 
 **Rough read:** of PSYCHE's 18 layers, 2 are genuinely working (Response Generation, and the emotion-classifier's continual learning), 4 are partial/stub (Perception, Cognitive Core, Persona Router, Memory), and 12 are not started. The product is closer to "a persona-flavored chatbot with an emotion tag" than to either vision document right now — completely normal for this stage, but worth seeing plainly.
 
-*(Snapshot above predates Phase 1 and Phase 2 — see §2's per-layer status for current state of L2/L4/L10/L14/L17. Phase 1 (structured memory, crisis safety core, consent UX) and Phase 2 (Context Fusion, Mental State vector, extended emotion output, rule-based orchestrator) have both landed in code but neither has confirmed its Supabase migration applied to the live project or an end-to-end run against a live server; see `PHASE_TODO.md`'s "still open" items under each phase. Phase 1's memory view also still lacks an edit affordance in the UI, though the backend endpoint exists.)*
+*(Snapshot above predates Phase 1, 2, and 3 — see §2's per-layer status for current state of L2/L4/L5/L7/L8/L9/L10/L12/L14/L17. Phase 1 (structured memory, crisis safety core, consent UX), Phase 2 (Context Fusion, Mental State vector, extended emotion output, rule-based orchestrator), and Phase 3 (identity profile, Growth Timeline, Intervention Planner, Emotional Simulation, self-reflection scoring) have all landed in code, but none has confirmed its Supabase migration applied to the live project or an end-to-end run against a live server — that step is deliberately on hold pending Supabase credentials; see `PHASE_TODO.md`'s "still open"/migration items under each phase. Phase 1's memory view now has its edit affordance built.)*
 
 ---
 
@@ -99,6 +99,40 @@ Identity/preference modeling, Growth Timeline (goals, milestones, journal themes
 
 ### Phase 4 — Depth & Scale (≈ PDF's advanced modules, heavily gated)
 Predictive signals (burnout/stress trend forecasting, framed as internal hypotheses only, never shown as diagnosis), semantic/vector memory (FAISS, as the diagrams already plan), offline mode + sync, enterprise-grade security (KMS, audit, tenant isolation). **Psychological testing suite deliberately left out of this roadmap pending a separate legal/clinical review** — see decision #5.
+
+---
+
+## 7. Phase 3 detailed design (Companionship)
+
+Decided 2026-09: close Phase 1/2's open items first (blocked on live Supabase credentials — see `PHASE_TODO.md`), build Phase 3 data-layers-before-reasoning, and ship Emotional Simulation (L9) as a tone/hedging pass rather than a draft-then-critique loop. Each module follows the `models.py` / `service.py` / `routes.py` shape already used by `memory/`, `mental_states/`, `context/`, `orchestrator/`, wired into `chat/routes.py` the same way.
+
+**Build order:** Identity (L5) → Growth Timeline (L7, data + UI) → Intervention Planner (L8) → Emotional Simulation (L9) → Self-reflection scoring (L12). Each stage has a working output the next stage can read.
+
+### 7.1 Identity/preference modeling (L5) — `backend/app/identity/`
+- Single-row-per-user `identity_profile` table (structured fields, not a list) — distinct from `memory_facts`: memory facts are discrete/raw, identity is the aggregated, stable profile derived from them. Candidate fields: `communication_style` (direct/gentle/humorous/…), `default_persona_preference`, `topics_to_avoid: list[str]`, `coping_preferences: list[str]`, `updated_at`.
+- Populated by a periodic/background aggregation over confirmed `memory_facts` (categories `preference`/`identity`) — reuse the extraction-call pattern already in `memory/service.py` rather than inventing a new one.
+- Exposed read-only in a new "About you" section of `memory_settings_screen.dart` to start (edit affordance can follow once the shape is validated).
+
+### 7.2 Growth Timeline (L7) — data model + UI
+- `goals` table: `id, user_id, title, description, status (active/completed/archived), created_at, target_date`.
+- `milestones` table: `id, goal_id, user_id, description, achieved_at, source (user_stated/inferred)`.
+- Chat-driven capture: extend `store_new_facts`'s extraction pass so `category="goal"` facts can seed a *draft* goal, promoted to a real row only on user confirmation (mirrors the existing `confirmed` flag pattern on `memory_facts`) — keeps the consent contract consistent.
+- New `growth_timeline_screen.dart`: list of active goals with their milestones, simple add/complete/archive actions. Reachable from the sidebar next to Memory & Privacy.
+
+### 7.3 Intervention Planner (L8) — `backend/app/intervention/`
+- Rule-based (same style as `orchestrator/service.py`), not LLM-based, to start. Input: `ContextPacket` + `identity_profile` + active goals + the orchestrator's existing suggestion. Output: `InterventionPlan{strategy, rationale, focus}`.
+- Small fixed playbook to start: `reflective_listening`, `grounding_exercise`, `goal_check_in`, `reframe`, `validate_and_normalize`, `psychoeducation_light`.
+- The chosen strategy is injected into the persona system prompt as guidance text (same mechanism `confirmed_facts` already uses in `gpt_service.get_ai_response`) — it *steers* the single LLM call, it doesn't replace it or add a round-trip.
+
+### 7.4 Emotional Simulation (L9) — `backend/app/simulation/`, tone/hedging pass only
+- Per the scope decision: no second generation round-trip. A rule-based check (mirrors `orchestrator`'s deterministic style) over `InterventionPlan` + `MentalStateVector` flags foreseeable mismatches — e.g. an upbeat `coach`-toned strategy against very negative valence gets a "could land as dismissive, soften" note.
+- Output is one more guidance string folded into the same prompt-assembly step as §7.3 — still exactly one LLM call per turn.
+- Explicitly deferred: an actual draft-then-critique loop (second LLM pass simulating user reaction to a drafted reply) — revisit only if the cheap heuristic proves too crude in practice.
+
+### 7.5 Self-reflection scoring (L12) — `backend/app/reflection/`
+- Extends the `continuous_trainer.py` pattern (already proven for the emotion classifier) to dialogue quality instead of building a new pattern from scratch.
+- Background task (same `BackgroundTasks` mechanism `store_new_facts` already uses in `chat/routes.py`) scores each assistant reply after the fact on a few axes: empathy/tone fit, relevance, crisis-protocol adherence when `risk_flagged`, persona consistency. Start heuristic (keyword/length/protocol checks); an async LLM-judge call can be added later once the heuristic's ceiling is understood.
+- Stores to a new `response_scores` table — observability only in this phase. Closing the loop into automatic prompt/rule refinement is a Phase 4-scale stretch goal, not in scope here.
 
 ---
 

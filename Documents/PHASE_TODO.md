@@ -39,9 +39,9 @@ Companion checklist to [`PSYCHE_Engine_Roadmap.md`](./PSYCHE_Engine_Roadmap.md).
 - [x] Add ability to view/delete stored memory from settings — done (see editable gap above)
 
 **Still open before calling Phase 1 fully closed:**
-- [ ] Apply `phase1_memory_safety.sql` to the live Supabase project (creates `memory_facts` + `safety_events`) — confirm it's actually been run, since Phase 2's migration is still pending as of this writing
-- [ ] Expose fact editing in `memory_settings_screen.dart` (backend endpoint already exists)
-- [ ] Run an end-to-end verification pass: confirm a crisis-phrase message forces Empath + logs to `safety_events`, and that facts stated in chat appear/are deletable in the Memory & Privacy screen
+- [ ] Apply `phase1_memory_safety.sql` to the live Supabase project (creates `memory_facts` + `safety_events`) — confirm it's actually been run, since Phase 2's migration is still pending as of this writing. **Needs someone with Supabase project access — this session has no `.env`/credentials in the repo to check or apply it.**
+- [x] Expose fact editing in `memory_settings_screen.dart` — edit icon + dialog added, calls the existing `PATCH /memory/{username}/{fact_id}` via a new `ApiService.updateMemoryFact`
+- [ ] Run an end-to-end verification pass: confirm a crisis-phrase message forces Empath + logs to `safety_events`, and that facts stated in chat appear/are deletable in the Memory & Privacy screen. **Blocked on the same missing Supabase credentials/live server access.**
 
 ---
 
@@ -55,20 +55,42 @@ Companion checklist to [`PSYCHE_Engine_Roadmap.md`](./PSYCHE_Engine_Roadmap.md).
 - [x] Decide and implement: manual persona toggle stays primary, orchestrator offers *suggestions* only (per decision #3) — `suggested_persona`/`suggested_retrieval_scope` returned advisory-only in `/chat/` response, never overrides client-selected or crisis-forced persona
 
 **Still open before calling Phase 2 fully closed:**
-- [ ] Apply `phase2_mental_state_context.sql` to the live Supabase project
-- [ ] Run the end-to-end verification pass against a running server (crisis/negative/positive message cases, trend-over-time check, journal → mental_states feed, `mood_logs` regression check)
+- [ ] Apply `phase2_mental_state_context.sql` to the live Supabase project. **Same credentials blocker as Phase 1's migration.**
+- [ ] Run the end-to-end verification pass against a running server (crisis/negative/positive message cases, trend-over-time check, journal → mental_states feed, `mood_logs` regression check). **Same credentials blocker.**
 
 ---
 
 ## Phase 3 — Companionship
-*Continuity across sessions, and a way for the system to judge its own replies.*
+*Continuity across sessions, and a way for the system to judge its own replies. Build order and scope decided 2026-09 — see §7 of the roadmap doc for the full design.*
 
-- [ ] Identity/preference modeling (L5) — track stable user traits/preferences separate from session state
-- [ ] Growth Timeline data model — goals, milestones, recurring journal themes (L7)
-- [ ] Growth Timeline UI — surface goals/milestones in the dashboard
-- [ ] Intervention Planner (L8) — basic strategy selection beyond raw persona choice
-- [ ] Emotional Simulation pass (L9) before response generation
-- [ ] Self-reflection scoring on response quality (L12) — extend the `continuous_trainer.py` pattern from emotion-only to dialogue quality
+**1. Identity/preference modeling (L5)** — `backend/app/identity/` — **built, migration not yet applied**
+- [x] `identity_profile` table (one row per user: communication style, default persona preference, topics to avoid, coping preferences) — `supabase_migrations/phase3_identity.sql`, **not yet applied to the live project** (same credentials blocker as Phase 1/2)
+- [x] Background aggregation service that derives the profile from confirmed `memory_facts` — `identity/service.py::aggregate_identity_profile`, triggered from `memory/service.py::store_new_facts` (auto-confirm case) and `memory/routes.py`'s PATCH endpoint (manual confirm case)
+- [x] Read-only "About you" section in `memory_settings_screen.dart` — hidden until the profile has at least one populated field
+- [ ] End-to-end verification against a live server (blocked on the same missing credentials)
+
+**2. Growth Timeline (L7)** — data model + UI — **built, migration not yet applied**
+- [x] `goals` table (title, description, status, target_date, confirmed/source for the draft-goal flow) — `supabase_migrations/phase3_growth_timeline.sql`, **not yet applied to the live project**
+- [x] `milestones` table (linked to a goal, source user_stated/inferred)
+- [x] Extend `store_new_facts` so `category="goal"` facts seed a draft goal (`growth/service.py::create_draft_goal`), promoted on user confirmation
+- [x] `growth_timeline_screen.dart` — draft-goal review, goal list with milestones, add/complete/archive, reachable from the sidebar
+- [ ] End-to-end verification against a live server (blocked on missing credentials)
+
+**3. Intervention Planner (L8)** — `backend/app/intervention/` — **built**
+- [x] Rule-based `InterventionPlan{strategy, rationale, focus}` selector (same deterministic style as `orchestrator/service.py`)
+- [x] Fixed starter playbook: reflective_listening, grounding_exercise, goal_check_in, reframe, validate_and_normalize, psychoeducation_light
+- [x] Wire the chosen strategy into the persona system prompt as guidance — `gpt_service.get_ai_response`'s new `strategy_guidance` param, same injection point `confirmed_facts` already uses
+
+**4. Emotional Simulation (L9)** — `backend/app/simulation/`, tone/hedging pass only — **built**
+- [x] Rule-based mismatch check between the manually-selected persona's default tone and the current `MentalStateVector` (e.g. coach persona vs. very negative valence → soften)
+- [x] Fold the resulting guidance string into the same single-call prompt assembly as the Intervention Planner
+
+**5. Self-reflection scoring (L12)** — `backend/app/reflection/`, extends the `continuous_trainer.py` pattern — **built, migration not yet applied**
+- [x] Background-task scorer (empathy markers, user/reply word-overlap relevance, crisis-protocol adherence, persona consistency) — heuristic only so far; async LLM-judge is a future upgrade, not required for this phase
+- [x] `response_scores` table — `supabase_migrations/phase3_reflection.sql`, **not yet applied to the live project**; observability only this phase, not yet wired into automatic retraining
+- [ ] End-to-end verification against a live server (blocked on missing credentials)
+
+**Migrations still to apply once Supabase credentials are available:** `phase1_memory_safety.sql`, `phase2_mental_state_context.sql`, `phase3_identity.sql`, `phase3_growth_timeline.sql`, `phase3_reflection.sql`.
 
 ---
 

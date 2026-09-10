@@ -7,6 +7,7 @@ import '../screens/journal_screen.dart';
 import '../screens/dream_screen.dart';
 import '../screens/mood_chart_screen.dart';
 import '../screens/memory_settings_screen.dart';
+import '../screens/growth_timeline_screen.dart';
 
 class AppSidebar extends StatelessWidget {
   final bool isDesktop;
@@ -186,6 +187,12 @@ class AppSidebar extends StatelessWidget {
                     title: 'Insights',
                     route: '/mood',
                     destination: MoodScreen(username: username)),
+                const SizedBox(height: 4),
+                _buildNavItem(context,
+                    icon: Icons.flag_outlined,
+                    title: 'Growth Timeline',
+                    route: '/growth',
+                    destination: GrowthTimelineScreen(username: username)),
                 const SizedBox(height: 4),
                 _buildNavItem(context,
                     icon: Icons.privacy_tip_outlined,

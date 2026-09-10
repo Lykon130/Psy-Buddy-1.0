@@ -12,6 +12,10 @@ from app.safety.service import assess_risk, log_safety_event, CRISIS_RESPONSE_TE
 from app.mental_states.service import compute_mental_state, persist_mental_state
 from app.context.service import build_context_packet
 from app.orchestrator.service import suggest as orchestrator_suggest
+from app.growth.service import get_goals
+from app.intervention.service import plan as plan_intervention, STRATEGY_GUIDANCE
+from app.simulation.service import simulate as simulate_tone
+from app.reflection.service import score_response
 
 router = APIRouter()
 
@@ -53,17 +57,41 @@ def chat(request: ChatRequest, background_tasks: BackgroundTasks):
         mental_state = compute_mental_state(user_id, session_id, emotion_result, source="chat")
         persist_mental_state(mental_state)
 
+        # Confirmed long-term facts, needed both for the reply prompt and
+        # for Context Fusion below.
+        confirmed_facts = [f["fact_text"] for f in get_facts(user_id, confirmed_only=True)]
+
+        # Context Fusion (L2) + rule-based Orchestrator suggestion (advisory
+        # only — never overrides the client-selected/crisis-forced persona).
+        # Built ahead of the reply (not after, as in Phase 2) so the
+        # Intervention Planner and Emotional Simulation passes below can
+        # steer this turn's single LLM call.
+        context_packet = build_context_packet(
+            user_id, session_id, emotion_result, mental_state, risk, confirmed_facts
+        )
+        suggestion = orchestrator_suggest(context_packet)
+
         if risk.flagged:
             log_safety_event(user_id, session_id, risk)
             persona = "empath"
             reply = CRISIS_RESPONSE_TEXT
-            confirmed_facts = []
+            intervention_plan = plan_intervention(context_packet, active_goals=[])
         else:
             # Background async fact extraction (structured memory)
             background_tasks.add_task(store_new_facts, user_id, session_id, request.message)
 
-            # Confirmed long-term facts to inject as context
-            confirmed_facts = [f["fact_text"] for f in get_facts(user_id, confirmed_only=True)]
+            # Intervention Planner (L8): rule-based strategy selection, and
+            # Emotional Simulation (L9): a cheap tone/hedging check on the
+            # manually-selected persona against the current mental state —
+            # both fold their guidance into this turn's single prompt, no
+            # extra LLM round-trip.
+            active_goals = get_goals(user_id)
+            intervention_plan = plan_intervention(context_packet, active_goals)
+            simulation_note = simulate_tone(persona, context_packet)
+
+            strategy_guidance = [STRATEGY_GUIDANCE[intervention_plan.strategy]]
+            if simulation_note.mismatch and simulation_note.guidance:
+                strategy_guidance.append(simulation_note.guidance)
 
             # Fetch only messages for exact session
             history_response = supabase.table("chats").select("*").eq("user_id", user_id).eq("session_id", session_id).order("timestamp").execute()
@@ -76,14 +104,7 @@ def chat(request: ChatRequest, background_tasks: BackgroundTasks):
             history_for_gpt.append({"role": "user", "content": request.message})
 
             # Get AI reply mapped
-            reply = get_ai_response(history_for_gpt, persona, confirmed_facts)
-
-        # Context Fusion (L2) + rule-based Orchestrator suggestion (advisory
-        # only — never overrides the client-selected/crisis-forced persona).
-        context_packet = build_context_packet(
-            user_id, session_id, emotion_result, mental_state, risk, confirmed_facts
-        )
-        suggestion = orchestrator_suggest(context_packet)
+            reply = get_ai_response(history_for_gpt, persona, confirmed_facts, strategy_guidance)
 
         # If session is new, generate title
         existing_session_response = supabase.table("chats").select("id").eq("user_id", user_id).eq("session_id", session_id).limit(1).execute()
@@ -122,8 +143,16 @@ def chat(request: ChatRequest, background_tasks: BackgroundTasks):
         }
         if session_title:
             assistant_doc["session_title"] = session_title
-            
-        supabase.table("chats").insert(assistant_doc).execute()
+
+        assistant_insert = supabase.table("chats").insert(assistant_doc).execute()
+        assistant_message_id = assistant_insert.data[0]["id"] if assistant_insert.data else None
+
+        # Self-reflection scoring (L12) — background, observability only.
+        background_tasks.add_task(
+            score_response,
+            user_id, session_id, assistant_message_id,
+            request.message, reply, persona, risk.flagged,
+        )
 
         # Update mood logs if there is an emotion (skip for crisis-flagged messages)
         if emotion and not risk.flagged:
@@ -143,7 +172,8 @@ def chat(request: ChatRequest, background_tasks: BackgroundTasks):
             "risk_flagged": risk.flagged,
             "mental_state": mental_state.dict(),
             "suggested_persona": suggestion.suggested_persona,
-            "suggested_retrieval_scope": suggestion.suggested_retrieval_scope
+            "suggested_retrieval_scope": suggestion.suggested_retrieval_scope,
+            "intervention_strategy": intervention_plan.strategy
         }
 
     except Exception as e:
