@@ -19,23 +19,29 @@ Companion checklist to [`PSYCHE_Engine_Roadmap.md`](./PSYCHE_Engine_Roadmap.md).
 ---
 
 ## Phase 1 — Foundation
-*The layer everything else depends on. Zero coverage today.*
+*The layer everything else depends on.*
 
 **Structured memory**
-- [ ] Design 2-tier memory model: working/session memory + explicit user-confirmed facts
-- [ ] Replace single-text-blob memory store with structured schema
-- [ ] Add confidence/provenance fields to stored memory items
-- [ ] Build user-facing memory view (visible, editable, deletable per the contract's consent principle)
+- [x] Design 2-tier memory model: working/session memory + explicit user-confirmed facts — session history stays in `chats`; durable facts move to `memory_facts`
+- [x] Replace single-text-blob memory store with structured schema — old single-blob `global_memory` session replaced by `backend/app/memory/` (`memory_facts` table)
+- [x] Add confidence/provenance fields to stored memory items — `MemoryFact.confidence` (float) + `source` ("user_stated"|"inferred") in `backend/app/memory/models.py`
+- [x] Build user-facing memory view (visible, deletable per the contract's consent principle) — `frontend/lib/screens/memory_settings_screen.dart`
+- [ ] **Editable** is not yet exposed in the UI — `PATCH /memory/{username}/{fact_id}` exists in `backend/app/memory/routes.py` (`MemoryFactUpdate`), but `memory_settings_screen.dart` only offers view + delete, no edit affordance
 
 **Minimal Crisis Safety Core (L17)**
-- [ ] Define risk keyword/phrase list + classifier-based risk flag on incoming messages
-- [ ] Build static crisis-resource response (forces Empath persona, surfaces professional help resources)
-- [ ] Wire risk flag into the message pipeline ahead of persona/LLM response
-- [ ] Add escalation/logging path for flagged messages (internal monitoring, not user-facing diagnosis)
+- [x] Define risk keyword/phrase list + classifier-based risk flag on incoming messages — `backend/app/safety/keywords.py` + `assess_risk()` in `safety/service.py`
+- [x] Build static crisis-resource response (forces Empath persona, surfaces professional help resources) — `CRISIS_RESPONSE_TEXT` in `safety/service.py`
+- [x] Wire risk flag into the message pipeline ahead of persona/LLM response — `assess_risk` runs before `get_ai_response` in `chat/routes.py`
+- [x] Add escalation/logging path for flagged messages (internal monitoring, not user-facing diagnosis) — `log_safety_event()` writes to `safety_events`
 
 **Consent UX**
-- [ ] Add in-app explanation of what gets remembered and why
-- [ ] Add ability to view/delete stored memory from settings
+- [x] Add in-app explanation of what gets remembered and why — intro card in `memory_settings_screen.dart`
+- [x] Add ability to view/delete stored memory from settings — done (see editable gap above)
+
+**Still open before calling Phase 1 fully closed:**
+- [ ] Apply `phase1_memory_safety.sql` to the live Supabase project (creates `memory_facts` + `safety_events`) — confirm it's actually been run, since Phase 2's migration is still pending as of this writing
+- [ ] Expose fact editing in `memory_settings_screen.dart` (backend endpoint already exists)
+- [ ] Run an end-to-end verification pass: confirm a crisis-phrase message forces Empath + logs to `safety_events`, and that facts stated in chat appear/are deletable in the Memory & Privacy screen
 
 ---
 
