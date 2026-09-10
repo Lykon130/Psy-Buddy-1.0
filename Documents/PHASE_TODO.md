@@ -42,11 +42,15 @@ Companion checklist to [`PSYCHE_Engine_Roadmap.md`](./PSYCHE_Engine_Roadmap.md).
 ## Phase 2 — Understanding
 *Stop treating each signal in isolation; replace the single mood label with a real state vector.*
 
-- [ ] Build Context Fusion (L2): combine emotion + journal + mood into one per-turn context packet
-- [ ] Replace single 0.2–0.9 mood score with a Mental State vector (stress, valence, trend over time)
-- [ ] Extend `utils/bert_emotion_api.py` output to feed the fused context packet
-- [ ] Build a lightweight Cognitive Core / orchestrator that selects persona + retrieval scope (replacing pure client-side persona selection)
-- [ ] Decide and implement: manual persona toggle stays primary, orchestrator offers *suggestions* only (per decision #3)
+- [x] Build Context Fusion (L2): combine emotion + journal + mood into one per-turn context packet — `backend/app/context/`
+- [x] Replace single 0.2–0.9 mood score with a Mental State vector (stress, valence, trend over time) — `backend/app/mental_states/`, `supabase_migrations/phase2_mental_state_context.sql`
+- [x] Extend `utils/bert_emotion_api.py` output to feed the fused context packet — full label distribution + distribution-weighted valence/arousal via `utils/emotion_vad.py`
+- [x] Build a lightweight Cognitive Core / orchestrator that selects persona + retrieval scope (replacing pure client-side persona selection) — `backend/app/orchestrator/`, rule-based
+- [x] Decide and implement: manual persona toggle stays primary, orchestrator offers *suggestions* only (per decision #3) — `suggested_persona`/`suggested_retrieval_scope` returned advisory-only in `/chat/` response, never overrides client-selected or crisis-forced persona
+
+**Still open before calling Phase 2 fully closed:**
+- [ ] Apply `phase2_mental_state_context.sql` to the live Supabase project
+- [ ] Run the end-to-end verification pass against a running server (crisis/negative/positive message cases, trend-over-time check, journal → mental_states feed, `mood_logs` regression check)
 
 ---
 

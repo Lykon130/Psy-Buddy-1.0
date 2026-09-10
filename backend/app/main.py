@@ -7,6 +7,7 @@ from app.journal import routes as journal_routes
 from app.dreams import routes as dream_routes
 from app.mood import routes as mood_routes
 from app.memory import routes as memory_routes
+from app.mental_states import routes as mental_states_routes
 app = FastAPI(title="PsyBuddy API")
 
 # CORS Middleware
@@ -25,6 +26,7 @@ app.include_router(journal_routes.router, prefix="/journal", tags=["Journal"])
 app.include_router(dream_routes.router, prefix="/dreams", tags=["Dreams"])
 app.include_router(mood_routes.router, prefix="/mood", tags=["Mood"])
 app.include_router(memory_routes.router, prefix="/memory", tags=["Memory"])
+app.include_router(mental_states_routes.router, prefix="/mental-states", tags=["MentalStates"])
 
 @app.get("/")
 def root():

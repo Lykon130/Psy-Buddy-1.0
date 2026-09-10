@@ -27,15 +27,15 @@ Each PSYCHE layer, matched to its product-layer name in the docx and its module 
 | PSYCHE layer (zone) | docx platform layer | PDF "AI Brain" module | Codebase status |
 |---|---|---|---|
 | L1 Multimodal Perception (Perception) | Interaction Layer | Emotion AI | **Partial** — text-only GoEmotions classifier (`utils/bert_emotion_api.py`); no voice/behavioral/vision signals |
-| L2 Context Fusion (Perception) | Understanding Layer | — | **Not started** — no fusion; each signal (message, emotion) is handled independently |
-| L3 Cognitive Core (Cognitive Reasoning) | Cognitive Layer | Custom PsyBuddy LLM | **Partial (stub)** — a single pass-through call to an OpenRouter model with a persona system prompt; no planning, no retrieval-based reasoning |
-| L4 Mental State Engine (Psych. Modeling) | Understanding/Relational Layer | Emotion AI (mental_state, stress_index) | **Minimal** — one emotion label mapped to a single 0.2–0.9 mood score; no stress/cognitive-load/motivation vector |
+| L2 Context Fusion (Perception) | Understanding Layer | — | **Partial (Phase 2)** — `backend/app/context/service.py::build_context_packet` fuses current emotion + Mental State vector + recent journal themes + confirmed memory facts + risk flag into one per-turn `ContextPacket`; no cognitive-load/motivation signals yet |
+| L3 Cognitive Core (Cognitive Reasoning) | Cognitive Layer | Custom PsyBuddy LLM | **Partial (stub)** — a single pass-through call to an OpenRouter model with a persona system prompt; no planning, no retrieval-based reasoning. `get_ai_response` now accepts an unused `context` param reserved for Phase 3 |
+| L4 Mental State Engine (Psych. Modeling) | Understanding/Relational Layer | Emotion AI (mental_state, stress_index) | **Partial (Phase 2)** — `backend/app/mental_states/service.py` computes a real vector (valence, stress, arousal, trend) per turn from the emotion distribution and persists it to `mental_states`; the old single 0.2–0.9 `mood_logs` score is kept only for backward compat, not superseded in the UI yet; no cognitive-load/motivation dimensions |
 | L5 Identity Modeling (Psych. Modeling) | Relational Layer (Profile) | Personality AI | **Not started** |
 | L6 Trust Model (Psych. Modeling) | — (implicit in consent) | — | **Not started** |
 | L7 Life Direction Model (Psych. Modeling) | Relational Layer (Growth Timeline) | — | **Not started** — no goals/milestones data model at all |
 | L8 Intervention Planner (Intervention) | Cognitive Layer (Orchestrator) | Persona Control Layer | **Not started** — no strategy selection beyond the persona the client sends |
 | L9 Emotional Simulation (Intervention) | Response contract | Safety AI (implicit) | **Not started** |
-| L10 Persona Router (Cognitive Reasoning) | Mode selection (Orchestrator) | Persona Control Layer | **Partial** — 3 persona system prompts (Empath/Coach/Friend) exist and are user-selectable; selection is manual, not orchestrated by intent/risk/trust |
+| L10 Persona Router (Cognitive Reasoning) | Mode selection (Orchestrator) | Persona Control Layer | **Partial (Phase 2)** — 3 persona system prompts (Empath/Coach/Friend) exist and remain user-selectable/primary; a new rule-based orchestrator (`backend/app/orchestrator/service.py`) computes a `suggested_persona` + `suggested_retrieval_scope` from the fused context packet and returns it in the `/chat/` response, but it is advisory-only and never overrides the client's choice (per decision #3) |
 | L11 Response Generation (Cognitive Reasoning) | Response contract | Custom PsyBuddy LLM | **Working** — functional, but ungrounded (no retrieval, no safety pass) |
 | L12 Self-Reflection (Learning) | Evaluation framework | — | **Not started** |
 | L13 Meta-Learning (Learning) | — | — | **Partial** — `continuous_trainer.py` re-fine-tunes the emotion classifier on the user's own labeled chat/journal text; a real, working sliver of self-improvement, just scoped to emotion detection, not dialogue quality |
@@ -56,6 +56,8 @@ Each PSYCHE layer, matched to its product-layer name in the docx and its module 
 - **Actively broken / urgent:** live credentials committed to git in `Documents/Configurations.odt` (Supabase password, Google OAuth client secret, Facebook app secret) — see §5.
 
 **Rough read:** of PSYCHE's 18 layers, 2 are genuinely working (Response Generation, and the emotion-classifier's continual learning), 4 are partial/stub (Perception, Cognitive Core, Persona Router, Memory), and 12 are not started. The product is closer to "a persona-flavored chatbot with an emotion tag" than to either vision document right now — completely normal for this stage, but worth seeing plainly.
+
+*(Snapshot above predates Phase 1 and Phase 2 — see §2's per-layer status for current state of L2/L4/L10/L14/L17. Phase 2 code — Context Fusion, Mental State vector, extended emotion output, rule-based orchestrator — has landed on the branch but has not yet had its Supabase migration applied or an end-to-end run against a live server; see `PHASE_TODO.md`.)*
 
 ---
 

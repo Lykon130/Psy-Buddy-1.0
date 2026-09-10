@@ -6,11 +6,13 @@ from app.chat.persona_config import persona_prompts
 # client = OpenAI(api_key=OPENAI_API_KEY)
 client = OpenAI(base_url="https://openrouter.ai/api/v1", api_key=OPENAI_API_KEY)
 
-def get_ai_response(history_messages, persona: str, memory_facts=None):
+def get_ai_response(history_messages, persona: str, memory_facts=None, context=None):
     """
     history_messages: List[{"role": "user"|"assistant", "content": "..."}]
     persona: string key for persona prompt
     memory_facts: list of confirmed long-term fact strings about the user
+    context: optional app.context.models.ContextPacket — reserved for
+        Phase 3's Intervention Planner, not used in prompt construction yet
     """
     system_prompt = persona_prompts.get(persona.lower(), persona_prompts["empath"]).copy()
 

@@ -9,6 +9,9 @@ from app.utils.config import supabase
 from app.utils.db import get_or_create_user
 from app.memory.service import get_facts, store_new_facts
 from app.safety.service import assess_risk, log_safety_event, CRISIS_RESPONSE_TEXT
+from app.mental_states.service import compute_mental_state, persist_mental_state
+from app.context.service import build_context_packet
+from app.orchestrator.service import suggest as orchestrator_suggest
 
 router = APIRouter()
 
@@ -27,11 +30,14 @@ def chat(request: ChatRequest, background_tasks: BackgroundTasks):
     try:
         session_id = request.session_id or str(uuid.uuid4())
 
-        # Emotion detection
+        # Emotion detection — keep the full result dict alive (Phase 2 needs
+        # valence/arousal, not just the top label) so we don't re-run the
+        # (expensive) pipeline a second time downstream.
         try:
             emotion_result = detect_emotion(text=request.message)
             emotion = emotion_result.get("emotion", None)
         except Exception as e:
+            emotion_result = {"emotion": None, "score": 0.0, "distribution": [], "valence": 0.0, "arousal": 0.0}
             emotion = None
             print(f"[Emotion Detection Error] {e}")
 
@@ -42,10 +48,16 @@ def chat(request: ChatRequest, background_tasks: BackgroundTasks):
         risk = assess_risk(request.message)
         persona = request.persona
 
+        # Mental State vector (Phase 2 L2/L4) — computed regardless of risk
+        # flag so trend continuity isn't broken by crisis turns.
+        mental_state = compute_mental_state(user_id, session_id, emotion_result, source="chat")
+        persist_mental_state(mental_state)
+
         if risk.flagged:
             log_safety_event(user_id, session_id, risk)
             persona = "empath"
             reply = CRISIS_RESPONSE_TEXT
+            confirmed_facts = []
         else:
             # Background async fact extraction (structured memory)
             background_tasks.add_task(store_new_facts, user_id, session_id, request.message)
@@ -65,6 +77,13 @@ def chat(request: ChatRequest, background_tasks: BackgroundTasks):
 
             # Get AI reply mapped
             reply = get_ai_response(history_for_gpt, persona, confirmed_facts)
+
+        # Context Fusion (L2) + rule-based Orchestrator suggestion (advisory
+        # only — never overrides the client-selected/crisis-forced persona).
+        context_packet = build_context_packet(
+            user_id, session_id, emotion_result, mental_state, risk, confirmed_facts
+        )
+        suggestion = orchestrator_suggest(context_packet)
 
         # If session is new, generate title
         existing_session_response = supabase.table("chats").select("id").eq("user_id", user_id).eq("session_id", session_id).limit(1).execute()
@@ -121,7 +140,10 @@ def chat(request: ChatRequest, background_tasks: BackgroundTasks):
             "emotion": emotion,
             "session_id": session_id,
             "persona": persona,
-            "risk_flagged": risk.flagged
+            "risk_flagged": risk.flagged,
+            "mental_state": mental_state.dict(),
+            "suggested_persona": suggestion.suggested_persona,
+            "suggested_retrieval_scope": suggestion.suggested_retrieval_scope
         }
 
     except Exception as e:

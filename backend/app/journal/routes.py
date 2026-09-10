@@ -4,6 +4,7 @@ from app.utils.bert_emotion_api import detect_emotion
 from datetime import datetime
 from app.utils.config import supabase
 from app.utils.db import get_or_create_user
+from app.mental_states.service import compute_mental_state, persist_mental_state
 
 router = APIRouter()
 
@@ -59,6 +60,11 @@ def add_entry(entry: JournalEntry):
                 "timestamp": data["timestamp"]
             }).execute()
 
+        # Mental State vector (Phase 2 L2) — journaling feeds the same
+        # stress/valence trend chat reads from.
+        mental_state = compute_mental_state(user_id, None, emotion_data, source="journal")
+        persist_mental_state(mental_state)
+
         # Return complete entry for frontend mapping db keys back to frontend keys
         return {
             "_id": str(inserted_id),
@@ -67,7 +73,8 @@ def add_entry(entry: JournalEntry):
             "content": insert_data["content"],
             "timestamp": insert_data["timestamp"],
             "emotion": insert_data["emotion"],
-            "emotion_score": insert_data["emotion_score"]
+            "emotion_score": insert_data["emotion_score"],
+            "mental_state": mental_state.dict()
         }
     except Exception as e:
         import traceback
